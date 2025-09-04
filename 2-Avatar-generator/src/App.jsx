@@ -42,41 +42,28 @@ const iconData = [
 function App() {
   const [imageSrc, setImageSrc] = useState("");
   const [icon, setIcon] = useState("male");
-  const [btn, btnRole] = useState("");
+  const [btn, setBtn] = useState("");
   const [msg, setMsg] = useState("");
 
-  const safeToast = (message) => {
-    setMsg(message);
+  const safeToast = (t) => {
+    setMsg(t);
     setTimeout(() => setMsg(""), 1200);
   };
 
-  const GenerateAvatar = useCallback(() => {
+  const generateAvatar = useCallback(() => {
     const obj = iconData.find((item) => item.value === icon);
     if (!obj) return;
-    const url = obj.URL;
 
     if (icon === "male" || icon === "female") {
-      const uniqueValue = Math.floor(Math.random() * 99) + 1;
-      const genderIcon = `${url}/${uniqueValue}.jpg`;
-      setImageSrc(genderIcon);
+      // RandomUser images: 0–99
+      const uniqueValue = Math.floor(Math.random() * 100); // 0..99
+      setImageSrc(`${obj.URL}/${uniqueValue}.jpg`);
     } else {
+      // DiceBear: SVG seeds
       const uniqueValue = Date.now();
-      const imageUrl = `${url}${uniqueValue}`;
-      setImageSrc(imageUrl);
+      setImageSrc(`${obj.URL}${uniqueValue}`);
     }
   }, [icon]);
-
-  const handleButtonclick = async (buttonName) => {
-    btnRole(buttonName);
-    setTimeout(() => btnRole(""), 200);
-    if (buttonName === "Change") {
-      GenerateAvatar();
-    } else if (buttonName === "Download") {
-      await downloadImage();
-    } else if (buttonName === "Copy") {
-      await copyToClipboard();
-    }
-  };
 
   const copyToClipboard = async () => {
     if (!imageSrc) return safeToast("No image to copy");
@@ -88,24 +75,50 @@ function App() {
     }
   };
 
-  const downloadImage = () => {
+  // Try native download first; falls back to open if browser blocks
+  const downloadImage = async () => {
+    if (!imageSrc) return safeToast("No image to download");
+
+    // Choose extension by source
+    const ext = icon === "male" || icon === "female" ? "jpg" : "svg";
+    const fileName = `avatar-${Date.now()}.${ext}`;
+
     const a = document.createElement("a");
     a.href = imageSrc;
-    a.dow = `download,${Date.now()}.jpg`;
+    a.setAttribute("download", fileName); // ← key fix
+    a.rel = "noopener";
+    a.referrerPolicy = "no-referrer";
     document.body.appendChild(a);
     a.click();
     a.remove();
+
+    // Note: Cross-origin servers may ignore the filename; still downloads.
+  };
+
+  const handleButtonclick = async (buttonName) => {
+    setBtn(buttonName);
+    setTimeout(() => setBtn(""), 200);
+
+    if (buttonName === "Change") {
+      generateAvatar();
+    } else if (buttonName === "Download") {
+      await downloadImage();
+    } else if (buttonName === "Copy") {
+      await copyToClipboard();
+    }
   };
 
   useEffect(() => {
-    GenerateAvatar();
-  }, [GenerateAvatar]);
+    generateAvatar();
+  }, [generateAvatar]);
 
   const buttonIcons = {
     Change: "ri-exchange-funds-fill",
     Download: "ri-download-2-line",
     Copy: "ri-file-copy-line",
   };
+
+  const isActionDisabled = (label) => label !== "Change" && !imageSrc; // only disable Copy/Download if no image
 
   return (
     <>
@@ -128,23 +141,25 @@ function App() {
           </div>
 
           <div className="relative w-full px-5">
+            <label htmlFor="avatar-style" className="sr-only">
+              Avatar style
+            </label>
             <select
+              id="avatar-style"
               className="bg-slate-900/60 mt-3 rounded-md w-full p-2.5 appearance-none text-cyan-50"
               value={icon}
               aria-label="Avatar style"
               onChange={(e) => setIcon(e.target.value)}
             >
-              {iconData.map((icon, index) => {
-                return (
-                  <option
-                    key={index}
-                    value={icon.value}
-                    className="text-cyan-50"
-                  >
-                    {icon.label}
-                  </option>
-                );
-              })}
+              {iconData.map((it) => (
+                <option
+                  key={it.value}
+                  value={it.value}
+                  className="text-cyan-50"
+                >
+                  {it.label}
+                </option>
+              ))}
             </select>
 
             <div className="bg-slate-900/60 mt-3 rounded-md w-full p-2.5 appearance-none text-cyan-50 overflow-x-hidden break-all select-all">
@@ -153,34 +168,35 @@ function App() {
           </div>
 
           <div className="flex w-full justify-around">
-            {["Change", "Download", "Copy"].map((e) => {
+            {["Change", "Download", "Copy"].map((label) => {
               const base =
-                e === "Change"
+                label === "Change"
                   ? "bg-gradient-to-r from-rose-500 to-orange-600"
-                  : e === "Download"
+                  : label === "Download"
                   ? "bg-gradient-to-r from-green-500 to-green-600"
                   : "bg-gradient-to-r from-purple-500 to-purple-600";
+
               const active =
-                e === "Change"
+                label === "Change"
                   ? "bg-gradient-to-br from-rose-800 to-orange-900"
-                  : e === "Download"
+                  : label === "Download"
                   ? "bg-gradient-to-br from-green-800 to-green-900"
                   : "bg-gradient-to-br from-purple-800 to-purple-900";
-              const isActive = btn === e;
-              const isDisabled = e !== "Download";
+
+              const isActive = btn === label;
 
               return (
                 <button
-                  key={e}
-                  onClick={() => handleButtonclick(e)}
-                  aria-label={e}
-                  disabled={isDisabled}
+                  key={label}
+                  onClick={() => handleButtonclick(label)}
+                  aria-label={label}
+                  disabled={isActionDisabled(label)}
                   className={`rounded-sm px-3 py-2 mt-5 w-fit text-center font-medium transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
                     isActive ? active : base
                   }`}
                 >
-                  <i className={`mr-1 ${buttonIcons[e]}`} />
-                  {e}
+                  <i className={`mr-1 ${buttonIcons[label]}`} />
+                  {label}
                 </button>
               );
             })}
