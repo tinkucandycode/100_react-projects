@@ -43,11 +43,10 @@ function App() {
   const [imageSrc, setImageSrc] = useState("");
   const [icon, setIcon] = useState("male");
   const [btn, btnRole] = useState("");
-  const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
 
-  const safeToast = (t) => {
-    setMsg(t);
+  const safeToast = (message) => {
+    setMsg(message);
     setTimeout(() => setMsg(""), 1200);
   };
 
@@ -168,7 +167,7 @@ function App() {
                   ? "bg-gradient-to-br from-green-800 to-green-900"
                   : "bg-gradient-to-br from-purple-800 to-purple-900";
               const isActive = btn === e;
-              const isDisabled = busy && e === "Download";
+              const isDisabled = e !== "Download";
 
               return (
                 <button
